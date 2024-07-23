@@ -50,21 +50,19 @@ export const TableComponent: React.FC<TableComponentProps> = ({
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   <div className="flex flex-col items-center justify-center">
-                    {typeof header.column.columnDef.header === "function"
-                      ? header.column.columnDef.header(header.getContext())
-                      : (header.column.columnDef.header as string)}
-                    {header.column.getIsSorted() ? (
-                      header.column.getIsSorted() === "asc" ? (
-                        <span>🔼</span>
-                      ) : (
-                        <span>🔽</span>
-                      )
-                    ) : (
-                      ""
-                    )}
+                    <div className="flex items-center">
+                      {typeof header.column.columnDef.header === "function"
+                        ? header.column.columnDef.header(header.getContext())
+                        : (header.column.columnDef.header as string)}
+                      {header.column.getIsSorted() && (
+                        <span className="ml-1">
+                          {header.column.getIsSorted() === "asc" ? "🔼" : "🔽"}
+                        </span>
+                      )}
+                    </div>
                     {isCustomColumn(header.column) && (
                       <Filter column={header.column} />
-                    )}{" "}
+                    )}
                   </div>
                 </th>
               ))}
