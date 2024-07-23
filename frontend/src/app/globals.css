@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* //:root {
+//    --foreground-rgb: 0, 0, 0;
+//    --background-start-rgb: 214, 219, 220;
+//    --background-end-rgb: 255, 255, 255;
+//}
+//
+//@media (prefers-color-scheme: dark) {
+//    :root {
+//        --foreground-rgb: 255, 255, 255;
+//        --background-start-rgb: 0, 0, 0;
+//        --background-end-rgb: 0, 0, 0;
+//    }
+//} */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* Ensure full height */
+  width: 100%; /* Ensure full width */
+  overflow: hidden; /* Prevent horizontal scroll */
+}
+
+/* body {
+  //color: rgb(var(--foreground-rgb));
+  //background: linear-gradient(
+  //        to bottom,
+  //        transparent,
+  //        rgb(var(--background-end-rgb))
+  //    )
+  //    rgb(var(--background-start-rgb));
+  //
+  // width: 100vw;
+  // height: 100vh;
+  // overflow: hidden;
+} */
+
+.vertical-scrollbar {
+  overflow-y: auto; /* Enables vertical scroll */
+  height: 100vh; /* Sets the height to the full viewport height */
+  width: 100%; /* Full width */
+}
+
+.no-horizontal-scrollbar {
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* //@layer utilities {
+//    .text-balance {
+//        text-wrap: balance;
+//    }
+//} */
+
+/* Base styles for the grid */
+/* Base styles for the grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  overflow-y: auto; /* Allows vertical scrolling within the grid if necessary */
+  /* Ensure there's no fixed height limit unless intentionally set */
+}
+
+/* Base styles for the card */
+.card {
+  border: 1px solid #ddd;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center; /* Centers the text and content */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Aligns items (including image) to the center horizontally */
+  justify-content: flex-start; /* Centers items vertically in the card */
+}
+
+.card img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 50%;
+  margin-bottom: 10px; /* Optional: Adds some space below the image */
+}
+
+/* Styles for monitors (large screens) */
+@media screen and (min-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Styles for tablets and laptops (medium screens) */
+@media screen and (min-width: 768px) and (max-width: 1199px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Styles for phones (small screens) */
+@media screen and (max-width: 767px) {
+  .grid {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+
+.about-link {
+  color: white;
+  text-decoration: underline;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.about-link:hover,
+.about-link:focus {
+  color: #0074f9;
+}
+
+/* .video-background {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.video-background .video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
+.video-background .content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: white;
+  text-align: center;
+} */

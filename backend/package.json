@@ -1,0 +1,50 @@
+{
+  "name": "stacker-flow-automation-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "author": "DegenLab",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "npx tsx src/index.ts",
+    "server": "npx tsx src/server.ts",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "audit": "npm audit",
+    "outdated": "npm outdated"
+  },
+  "dependencies": {
+    "@stacks/network": "^6.16.0",
+    "@stacks/stacking": "^6.16.1",
+    "@stacks/transactions": "^6.16.1",
+    "axios": "^1.7.2",
+    "bitcoin-address-validation": "^2.2.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "secp256k1": "^5.0.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.4.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.10",
+    "@types/secp256k1": "^4.0.6",
+    "@typescript-eslint/eslint-plugin": "^7.16.1",
+    "@typescript-eslint/parser": "^7.16.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^8.10.0",
+    "eslint-plugin-jest": "^28.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "fast-check": "^3.19.0",
+    "prettier": "^2.8.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^7.16.1"
+  }
+}
