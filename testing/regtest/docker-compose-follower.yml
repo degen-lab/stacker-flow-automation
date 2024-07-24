@@ -1,0 +1,68 @@
+version: "3.9"
+
+x-common-vars:
+  - &STACKS_BLOCKCHAIN_COMMIT d0f5712332619b3140badc2d25856975d2747004
+  - &MINER_PUB_KEY 035379aa40c02890d253cfa577964116eb5295570ae9f7287cbae5f2585f5b2c7c
+  - &BITCOIN_PEER_PORT 18444
+  - &BITCOIN_RPC_PORT 18443
+  - &BITCOIN_RPC_USER btc
+  - &BITCOIN_RPC_PASS btc
+  - &STACKS_20_HEIGHT ${STACKS_20_HEIGHT:-101}
+  - &STACKS_2_05_HEIGHT ${STACKS_2_05_HEIGHT:-102}
+  - &STACKS_21_HEIGHT ${STACKS_21_HEIGHT:-103}
+  - &STACKS_POX2_HEIGHT ${STACKS_POX2_HEIGHT:-104} # 104 is is stacks_block=1, 106 is stacks_block=3
+  - &STACKS_22_HEIGHT ${STACKS_22_HEIGHT:-105}
+  - &STACKS_23_HEIGHT ${STACKS_23_HEIGHT:-106}
+  - &STACKS_24_HEIGHT ${STACKS_24_HEIGHT:-107}
+
+services:
+  stacks-node-follower:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-node
+      args:
+        GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
+    ports:
+      - "30443:20443"
+    volumes:
+      - ./stacks-krypton-follower.toml/:/root/config.toml.in
+      - ./bitcoin.conf:/root/.bitcoin/bitcoin.conf
+      - ./init-data:/init-data
+      - chainstate:/chainstate
+    environment:
+      # STACKS_LOG_TRACE: 1 # uncomment for trace logging
+      # STACKS_LOG_DEBUG: 1
+      # STACKS_EVENT_OBSERVER: stacks-api:3700
+      DATA_DIR: /chainstate/stacks-blockchain-follower-data
+      BITCOIN_PEER_HOST: bitcoind
+      BITCOIN_PEER_PORT: *BITCOIN_PEER_PORT
+      BITCOIN_RPC_PORT: *BITCOIN_RPC_PORT
+      BITCOIN_RPC_USER: *BITCOIN_RPC_USER
+      BITCOIN_RPC_PASS: *BITCOIN_RPC_PASS
+      MINER_PUB_KEY: *MINER_PUB_KEY
+      STACKS_20_HEIGHT: *STACKS_20_HEIGHT
+      STACKS_2_05_HEIGHT: *STACKS_2_05_HEIGHT
+      STACKS_21_HEIGHT: *STACKS_21_HEIGHT
+      STACKS_POX2_HEIGHT: *STACKS_POX2_HEIGHT
+      STACKS_22_HEIGHT: *STACKS_22_HEIGHT
+      STACKS_23_HEIGHT: *STACKS_23_HEIGHT
+      STACKS_24_HEIGHT: *STACKS_24_HEIGHT
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p $${DATA_DIR}
+        rm -rf $${DATA_DIR}/*
+        envsubst < config.toml.in > config.toml
+        until $(curl -o /dev/null -s stacks-node-miner:20443); do
+            sleep 5
+        done
+        exec stacks-node start --config config.toml
+
+networks:
+  stacks:
+volumes:
+  chainstate:

@@ -1,0 +1,372 @@
+version: "3.9"
+
+x-common-vars:
+  - &STACKS_BLOCKCHAIN_COMMIT 441b7edf606a4e8ea5c897d2e8b9c844b2b2bf3f
+  - &STACKS_API_COMMIT 1c325dfc04d9a81738c48961b4eef1c28fccb3bd
+  - &BTC_ADDR miEJtNKa3ASpA19v5ZhvbKTEieYjLpzCYT
+  - &MINER_SEED 9e446f6b0c6a96cf2190e54bcd5a8569c3e386f091605499464389b8d4e0bfc201 # stx: STEW4ZNT093ZHK4NEQKX8QJGM2Y7WWJ2FQQS5C19, btc: miEJtNKa3ASpA19v5ZhvbKTEieYjLpzCYT, pub_key: 035379aa40c02890d253cfa577964116eb5295570ae9f7287cbae5f2585f5b2c7c, wif: cStMQXkK5yTFGP3KbNXYQ3sJf2qwQiKrZwR9QJnksp32eKzef1za
+  - &BITCOIN_PEER_PORT 18444
+  - &BITCOIN_RPC_PORT 18443
+  - &BITCOIN_RPC_USER btc
+  - &BITCOIN_RPC_PASS btc
+  - &MINE_INTERVAL ${MINE_INTERVAL:-1s}
+  - &MINE_INTERVAL_EPOCH25 ${MINE_INTERVAL_EPOCH25:-10s} # 10 second bitcoin block times in epoch 2.5
+  - &MINE_INTERVAL_EPOCH3 ${MINE_INTERVAL_EPOCH3:-30s} # 10 minute bitcoin block times in epoch 3
+  - &NAKAMOTO_BLOCK_INTERVAL 2 # seconds to wait between issuing stx-transfer transactions (which triggers Nakamoto block production)
+  - &STACKS_20_HEIGHT ${STACKS_20_HEIGHT:-0}
+  - &STACKS_2_05_HEIGHT ${STACKS_2_05_HEIGHT:-102}
+  - &STACKS_21_HEIGHT ${STACKS_21_HEIGHT:-103}
+  - &STACKS_POX2_HEIGHT ${STACKS_POX2_HEIGHT:-104} # 104 is is stacks_block=1, 106 is stacks_block=3
+  - &STACKS_22_HEIGHT ${STACKS_22_HEIGHT:-105}
+  - &STACKS_23_HEIGHT ${STACKS_23_HEIGHT:-106}
+  - &STACKS_24_HEIGHT ${STACKS_24_HEIGHT:-107}
+  - &STACKS_25_HEIGHT ${STACKS_25_HEIGHT:-108}
+  - &STACKS_30_HEIGHT ${STACKS_30_HEIGHT:-131}
+  - &STACKING_CYCLES ${STACKING_CYCLES:-1} # number of cycles to stack-stx or stack-extend for
+  - &POX_PREPARE_LENGTH ${POX_PREPARE_LENGTH:-5}
+  - &POX_REWARD_LENGTH ${POX_REWARD_LENGTH:-20}
+  - &REWARD_RECIPIENT ${REWARD_RECIPIENT:-STQM73RQC4EX0A07KWG1J5ECZJYBZS4SJ4ERC6WN} # priv: 6ad9cadb42d4edbfbe0c5bfb3b8a4125ddced021c4174f829b714ccbf527f02001
+  - &EXIT_FROM_MONITOR 1 # set to "1" to automatically shut down via monitor.ts
+
+services:
+  bitcoind:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.btc
+    ports:
+      - "18443:18443"
+      - "18444:18444"
+    volumes:
+      - ./bitcoin.conf:/root/.bitcoin/bitcoin.conf
+      - ./init-data:/init-data
+      - chainstate:/chainstate
+    environment:
+      DATA_DIR: /chainstate/bitcoin-data
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p $${DATA_DIR}
+        rm -rf $${DATA_DIR}/*
+        bitcoind
+
+  bitcoind-miner:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.btc
+    depends_on:
+      - bitcoind
+    volumes:
+      - ./bitcoin.conf:/root/.bitcoin/bitcoin.conf
+    environment:
+      BTC_ADDR: *BTC_ADDR
+      MINE_INTERVAL: *MINE_INTERVAL
+      MINE_INTERVAL_EPOCH3: *MINE_INTERVAL_EPOCH3
+      MINE_INTERVAL_EPOCH25: *MINE_INTERVAL_EPOCH25
+      INIT_BLOCKS: 101
+      STACKS_30_HEIGHT: *STACKS_30_HEIGHT
+      STACKS_25_HEIGHT: *STACKS_25_HEIGHT
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        trap "exit" INT TERM
+        trap "kill 0" EXIT
+        bitcoin-cli -rpcconnect=bitcoind -rpcwait getmininginfo
+        bitcoin-cli -rpcconnect=bitcoind -named createwallet wallet_name=main descriptors=false
+        bitcoin-cli -rpcconnect=bitcoind importaddress $${BTC_ADDR} "" false
+        bitcoin-cli -rpcconnect=bitcoind generatetoaddress $${INIT_BLOCKS} $${BTC_ADDR}
+        DEFAULT_TIMEOUT=$$(($$(date +%s) + 30))
+        while true; do
+          TX=$$(bitcoin-cli -rpcconnect=bitcoind listtransactions '*' 1 0 true)
+          CONFS=$$(echo "$${TX}" | jq '.[].confirmations')
+          if [ "$${CONFS}" = "0" ] || [ $$(date +%s) -gt $$DEFAULT_TIMEOUT ]; then
+            if [ $$(date +%s) -gt $$DEFAULT_TIMEOUT ]; then
+              echo "Timed out waiting for a mempool tx, mining a btc block..."
+            else
+              echo "Detected Stacks mining mempool tx, mining btc block..."
+            fi
+            bitcoin-cli -rpcconnect=bitcoind generatetoaddress 1 "$${BTC_ADDR}"
+            DEFAULT_TIMEOUT=$$(($$(date +%s) + 30))
+          else
+            echo "No Stacks mining tx detected"
+          fi
+
+          SLEEP_DURATION=$${MINE_INTERVAL}
+          BLOCK_HEIGHT=$$(bitcoin-cli -rpcconnect=bitcoind getblockcount)
+          if [ "$${BLOCK_HEIGHT}" -gt $$(( $${STACKS_30_HEIGHT} + 1 )) ]; then
+            echo "In Epoch3, sleeping for $${MINE_INTERVAL_EPOCH3} ..."
+            SLEEP_DURATION=$${MINE_INTERVAL_EPOCH3}
+          elif [ "$${BLOCK_HEIGHT}" -gt $$(( $${STACKS_25_HEIGHT} + 1 )) ]; then
+            echo "In Epoch2.5, sleeping for $${MINE_INTERVAL_EPOCH25} ..."
+            SLEEP_DURATION=$${MINE_INTERVAL_EPOCH25}
+          fi
+          sleep $${SLEEP_DURATION} &
+          wait || exit 0
+        done
+
+  stacks-node:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-node
+      args:
+        GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
+    depends_on:
+      - bitcoind
+    ports:
+      - "20443:20443"
+    volumes:
+      - ./stacks-krypton-miner.toml/:/root/config.toml.in
+      - ./bitcoin.conf:/root/.bitcoin/bitcoin.conf
+      - ./init-data:/init-data
+      - chainstate:/chainstate
+    environment:
+      # STACKS_LOG_TRACE: 1 # uncomment for trace logging
+      # STACKS_LOG_DEBUG: 1
+      # RUST_LOG: debug
+      DATA_DIR: /chainstate/stacks-blockchain-miner-data
+      BITCOIN_PEER_HOST: bitcoind
+      BITCOIN_PEER_PORT: *BITCOIN_PEER_PORT
+      BITCOIN_RPC_PORT: *BITCOIN_RPC_PORT
+      BITCOIN_RPC_USER: *BITCOIN_RPC_USER
+      BITCOIN_RPC_PASS: *BITCOIN_RPC_PASS
+      MINER_SEED: *MINER_SEED
+      STACKS_20_HEIGHT: *STACKS_20_HEIGHT
+      STACKS_2_05_HEIGHT: *STACKS_2_05_HEIGHT
+      STACKS_21_HEIGHT: *STACKS_21_HEIGHT
+      STACKS_POX2_HEIGHT: *STACKS_POX2_HEIGHT
+      STACKS_22_HEIGHT: *STACKS_22_HEIGHT
+      STACKS_23_HEIGHT: *STACKS_23_HEIGHT
+      STACKS_24_HEIGHT: *STACKS_24_HEIGHT
+      STACKS_25_HEIGHT: *STACKS_25_HEIGHT
+      STACKS_30_HEIGHT: *STACKS_30_HEIGHT
+      POX_PREPARE_LENGTH: *POX_PREPARE_LENGTH
+      POX_REWARD_LENGTH: *POX_REWARD_LENGTH
+      REWARD_RECIPIENT: *REWARD_RECIPIENT
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        if [[ ! -z "$${REWARD_RECIPIENT}" ]]; then
+          export REWARD_RECIPIENT_CONF="block_reward_recipient = \"$${REWARD_RECIPIENT}\""
+        fi
+        mkdir -p $${DATA_DIR}
+        rm -rf $${DATA_DIR}/*
+        envsubst < config.toml.in > config.toml
+        bitcoin-cli -rpcwait -rpcconnect=bitcoind getmininginfo
+        exec stacks-node start --config config.toml
+
+  stacker:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacker
+    environment:
+      STACKS_CORE_RPC_HOST: stacks-node
+      STACKS_CORE_RPC_PORT: 20443
+      STACKING_CYCLES: *STACKING_CYCLES
+      STACKING_KEYS: 6a1a754ba863d7bab14adbbc3f8ebb090af9e871ace621d3e5ab634e1422885e01,b463f0df6c05d2f156393eee73f8016c5372caa0e9e29a901bb7171d90dc4f1401,7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
+      STACKS_25_HEIGHT: *STACKS_25_HEIGHT
+      STACKS_30_HEIGHT: *STACKS_30_HEIGHT
+      POX_PREPARE_LENGTH: *POX_PREPARE_LENGTH
+      POX_REWARD_LENGTH: *POX_REWARD_LENGTH
+      STACKING_INTERVAL: 2 # interval (seconds) for checking if stacking transactions are needed
+      POST_TX_WAIT: 10 # seconds to wait after a stacking transaction broadcast before continuing the loop
+      SERVICE_NAME: stacker
+    depends_on:
+      - stacks-node
+
+  monitor:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacker
+    environment:
+      STACKS_CORE_RPC_HOST: stacks-api
+      STACKS_CORE_RPC_PORT: 3999
+      STACKING_CYCLES: *STACKING_CYCLES
+      STACKING_KEYS: 6a1a754ba863d7bab14adbbc3f8ebb090af9e871ace621d3e5ab634e1422885e01,b463f0df6c05d2f156393eee73f8016c5372caa0e9e29a901bb7171d90dc4f1401,7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
+      STACKS_25_HEIGHT: *STACKS_25_HEIGHT
+      STACKS_30_HEIGHT: *STACKS_30_HEIGHT
+      POX_PREPARE_LENGTH: *POX_PREPARE_LENGTH
+      POX_REWARD_LENGTH: *POX_REWARD_LENGTH
+      EXIT_FROM_MONITOR: *EXIT_FROM_MONITOR
+      SERVICE_NAME: monitor
+    depends_on:
+      - stacks-node
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        exec npx tsx /root/monitor.ts
+
+  tx-broadcaster:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacker
+    environment:
+      STACKS_CORE_RPC_HOST: stacks-node
+      STACKS_CORE_RPC_PORT: 20443
+      NAKAMOTO_BLOCK_INTERVAL: *NAKAMOTO_BLOCK_INTERVAL
+      STACKS_30_HEIGHT: *STACKS_30_HEIGHT
+      ACCOUNT_KEYS: 0d2f965b472a82efd5a96e6513c8b9f7edc725d5c96c7d35d6c722cedeb80d1b01,975b251dd7809469ef0c26ec3917971b75c51cd73a022024df4bf3b232cc2dc001,c71700b07d520a8c9731e4d0f095aa6efb91e16e25fb27ce2b72e7b698f8127a01
+      STACKS_25_HEIGHT: *STACKS_25_HEIGHT
+      POX_PREPARE_LENGTH: *POX_PREPARE_LENGTH
+      POX_REWARD_LENGTH: *POX_REWARD_LENGTH
+      STACKING_KEYS: 6a1a754ba863d7bab14adbbc3f8ebb090af9e871ace621d3e5ab634e1422885e01,b463f0df6c05d2f156393eee73f8016c5372caa0e9e29a901bb7171d90dc4f1401,7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
+    depends_on:
+      - stacks-node
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        exec npx tsx /root/tx-broadcaster.ts
+
+  postgres:
+    networks:
+      - stacks
+    image: "postgres:15"
+    ports:
+      - "5490:5490"
+    volumes:
+      - chainstate:/chainstate
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stacks_blockchain_api
+      PGPORT: 5490
+      PGDATA: /chainstate/pg-data
+
+  stacks-api:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-api
+      args:
+        GIT_COMMIT: *STACKS_API_COMMIT
+    depends_on:
+      - postgres
+    ports:
+      - "3999:3999"
+    expose:
+      - "3700"
+    environment:
+      NODE_ENVIRONMENT: production
+      STACKS_API_LOG_LEVEL: debug
+      STACKS_CHAIN_ID: "0x80000000"
+      STACKS_BLOCKCHAIN_API_HOST: "0.0.0.0"
+      STACKS_BLOCKCHAIN_API_PORT: 3999
+      STACKS_CORE_EVENT_HOST: "0.0.0.0"
+      STACKS_CORE_EVENT_PORT: 3700
+      PG_HOST: postgres
+      PG_PORT: 5490
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      PG_DATABASE: stacks_blockchain_api
+      PG_SCHEMA: public
+      STACKS_CORE_RPC_HOST: stacks-node
+      STACKS_CORE_RPC_PORT: 20443
+      BTC_RPC_HOST: http://bitcoind
+      BTC_RPC_PORT: 18443
+      BTC_RPC_USER: btc
+      BTC_RPC_PW: btc
+      BTC_FAUCET_PK: *MINER_SEED
+
+  stacks-signer-1:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-node
+      args:
+        GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
+    depends_on:
+      - stacks-node
+    volumes:
+      - ./signer-0.toml:/root/config.toml.in
+      - chainstate:/chainstate
+    environment:
+      SIGNER_DB_PATH: /chainstate/stacks-signer-1.sqlite
+      STACKS_NODE_HOST: stacks-node:20443
+      STACKS_SIGNER_ENDPOINT: 0.0.0.0:30001
+      SIGNER_PRIVATE_KEY: 6a1a754ba863d7bab14adbbc3f8ebb090af9e871ace621d3e5ab634e1422885e01
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        envsubst < config.toml.in > config.toml
+        exec stacks-signer run --config config.toml
+
+  stacks-signer-2:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-node
+      args:
+        GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
+    depends_on:
+      - stacks-node
+    volumes:
+      - ./signer-0.toml:/root/config.toml.in
+      - chainstate:/chainstate
+    environment:
+      SIGNER_DB_PATH: /chainstate/stacks-signer-2.sqlite
+      STACKS_NODE_HOST: stacks-node:20443
+      STACKS_SIGNER_ENDPOINT: 0.0.0.0:30002
+      SIGNER_PRIVATE_KEY: b463f0df6c05d2f156393eee73f8016c5372caa0e9e29a901bb7171d90dc4f1401
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        envsubst < config.toml.in > config.toml
+        exec stacks-signer run --config config.toml
+
+  stacks-signer-3:
+    networks:
+      - stacks
+    build:
+      context: .
+      dockerfile: Dockerfile.stacks-node
+      args:
+        GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
+    depends_on:
+      - stacks-node
+    volumes:
+      - ./signer-0.toml:/root/config.toml.in
+      - chainstate:/chainstate
+    environment:
+      SIGNER_DB_PATH: /chainstate/stacks-signer-3.sqlite
+      STACKS_NODE_HOST: stacks-node:20443
+      STACKS_SIGNER_ENDPOINT: 0.0.0.0:30003
+      SIGNER_PRIVATE_KEY: 7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        envsubst < config.toml.in > config.toml
+        exec stacks-signer run --config config.toml
+
+networks:
+  stacks:
+volumes:
+  chainstate:

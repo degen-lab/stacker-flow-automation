@@ -1,0 +1,310 @@
+# syntax=docker/dockerfile:1
+
+FROM rust:bookworm as builder
+
+# A commit hash, tag, or branch
+ARG GIT_COMMIT=d0f5712332619b3140badc2d25856975d2747004
+ARG BLOCKCHAIN_REPO=https://github.com/stacks-network/stacks-blockchain.git
+
+ARG TARGETPLATFORM
+ENV DEBIAN_FRONTEND noninteractive
+
+WORKDIR /stacks
+
+COPY *stacks-blockchain-binaries /stacks-blockchain-binaries
+
+SHELL ["/bin/bash", "-ce"]
+RUN <<EOF
+  STACKS_NODE_BIN_ARM64=/stacks-blockchain-binaries/aarch64-unknown-linux-gnu/stacks-node
+  STACKS_NODE_BIN_AMD64=/stacks-blockchain-binaries/x86_64-unknown-linux-gnu/stacks-node
+  if [ "$TARGETPLATFORM" = "linux/arm64" ] && [ -f "$STACKS_NODE_BIN_ARM64" ]; then
+    echo "Using existing stacks-node binary: $STACKS_NODE_BIN_ARM64"
+    mkdir -p target/release && mv "$STACKS_NODE_BIN_ARM64" target/release/stacks-node
+    exit 0
+  elif [ "$TARGETPLATFORM" = "linux/amd64" ] && [ -f "$STACKS_NODE_BIN_AMD64" ]; then
+    echo "Using existing stacks-node binary: $STACKS_NODE_BIN_AMD64"
+    mkdir -p target/release && mv "$STACKS_NODE_BIN_AMD64" target/release/stacks-node
+    exit 0
+  fi
+
+  if git ls-remote -htq --exit-code $BLOCKCHAIN_REPO $GIT_COMMIT; then
+    echo "Cloning Stacks blockchain from branch or tag: $GIT_COMMIT"
+    git clone --depth 1 --branch "$GIT_COMMIT" "$BLOCKCHAIN_REPO" .
+  else
+    echo "Cloning Stacks blockchain from commit: $GIT_COMMIT"
+    git init
+    git remote add origin $BLOCKCHAIN_REPO
+    git -c protocol.version=2 fetch --depth=1 origin $GIT_COMMIT
+    git reset --hard FETCH_HEAD
+  fi
+
+  apt-get update && apt-get install -y libclang-dev
+  rustup toolchain install stable
+  rustup component add rustfmt --toolchain stable
+  CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --package stacks-node --bin stacks-node --release
+EOF
+
+FROM debian:bookworm-backports
+
+COPY --from=builder /stacks/target/release/stacks-node /usr/local/bin/
+COPY --from=dobtc/bitcoin:25.1 /opt/bitcoin-*/bin /usr/local/bin
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && apt-get install -y curl gettext-base jq
+RUN curl -SLO https://deb.nodesource.com/nsolid_setup_deb.sh && chmod 500 nsolid_setup_deb.sh && ./nsolid_setup_deb.sh 20 && apt-get install nodejs -y
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+VOLUME /chainstate
+
+# Stacks-node RPC
+EXPOSE 20443
+# Bitcoind JSON-RPC
+EXPOSE 18443
+# Postgres
+EXPOSE 5490
+
+ENV DATA_DIR=/chainstate/stacks-blockchain-data
+ENV BTC_ADDR=miEJtNKa3ASpA19v5ZhvbKTEieYjLpzCYT
+ENV BTC_ADDR_WIF=cStMQXkK5yTFGP3KbNXYQ3sJf2qwQiKrZwR9QJnksp32eKzef1za
+ENV MINER_SEED=9e446f6b0c6a96cf2190e54bcd5a8569c3e386f091605499464389b8d4e0bfc201
+ENV BITCOIN_PEER_HOST=localhost
+ENV BITCOIN_PEER_PORT=18444
+ENV BITCOIN_RPC_PORT=18443
+ENV BITCOIN_RPC_USER=btc
+ENV BITCOIN_RPC_PASS=btc
+
+ARG MINE_INTERVAL=5s
+ENV MINE_INTERVAL=$MINE_INTERVAL
+
+ARG STACKS_20_HEIGHT=103
+ENV STACKS_20_HEIGHT=$STACKS_20_HEIGHT
+
+ARG STACKS_2_05_HEIGHT=104
+ENV STACKS_2_05_HEIGHT=$STACKS_2_05_HEIGHT
+
+ARG STACKS_21_HEIGHT=106
+ENV STACKS_21_HEIGHT=$STACKS_21_HEIGHT
+
+ARG STACKS_POX2_HEIGHT=107
+ENV STACKS_POX2_HEIGHT=$STACKS_POX2_HEIGHT
+
+ARG STACKS_22_HEIGHT=108
+ENV STACKS_22_HEIGHT=$STACKS_22_HEIGHT
+
+ARG STACKS_23_HEIGHT=109
+ENV STACKS_23_HEIGHT=$STACKS_23_HEIGHT
+
+ARG STACKS_24_HEIGHT=111
+ENV STACKS_24_HEIGHT=$STACKS_24_HEIGHT
+
+ARG STACKS_25_HEIGHT=112
+ENV STACKS_25_HEIGHT=$STACKS_25_HEIGHT
+
+ARG STACKS_30_HEIGHT=132
+ENV STACKS_30_HEIGHT=$STACKS_30_HEIGHT
+
+ARG STACKS_PREHEAT_FINISH_HEIGHT=150
+ENV STACKS_PREHEAT_FINISH_HEIGHT=$STACKS_PREHEAT_FINISH_HEIGHT
+
+# priv: 6ad9cadb42d4edbfbe0c5bfb3b8a4125ddced021c4174f829b714ccbf527f02001
+# ARG REWARD_RECIPIENT=STQM73RQC4EX0A07KWG1J5ECZJYBZS4SJ4ERC6WN
+ARG REWARD_RECIPIENT
+ENV REWARD_RECIPIENT=$REWARD_RECIPIENT
+
+ENV BOOTSTRAP_EVENTS_FILE=/event-log.ndjson
+
+COPY ./bitcoin.conf /root/.bitcoin/bitcoin.conf
+COPY ./stacks-krypton-miner.toml /root/config.toml.in
+
+WORKDIR /root
+
+# Setup event observer script
+RUN <<EOF
+cat > /root/event-observer.js <<'EOM'
+const http = require('http');
+const fs = require('fs');
+const fd = fs.openSync(process.env.BOOTSTRAP_EVENTS_FILE, 'a');
+const server = http.createServer((req, res) => {
+  fs.appendFileSync(fd, req.url + '\n');
+  req
+    .on('data', chunk => fs.appendFileSync(fd, chunk))
+    .on('end', () => {
+      fs.appendFileSync(fd, '\n');
+      res.writeHead(200).end();
+    });
+}).listen(3998, '0.0.0.0');
+EOM
+EOF
+
+# Create Stacking script
+RUN npm init -y && npm i @stacks/stacking@6
+RUN <<EOF
+cat > /root/stack.js <<'EOM'
+  const { StackingClient } = require('@stacks/stacking');
+  const { StacksTestnet } = require('@stacks/network');
+  console.log('Stacking with args:', process.argv.slice(2));
+  const network = new StacksTestnet({ url: 'http://localhost:20443' });
+  const address = 'ST18MDW2PDTBSCR1ACXYRJP2JX70FWNM6YY2VX4SS';
+  const client = new StackingClient(address, network);
+  client.stack({
+    amountMicroStx: parseInt(process.argv[2]),
+    burnBlockHeight: parseInt(process.argv[3]),
+    poxAddress: 'mvuYDknzDtPgGqm2GnbAbmGMLwiyW3AwFP',
+    cycles: 12,
+    privateKey: '6a1a754ba863d7bab14adbbc3f8ebb090af9e871ace621d3e5ab634e1422885e01',
+    fee: 1000,
+    nonce: 0,
+  })
+    .then(r => console.log('Stacked', r))
+    .catch(e => {
+      console.error('Error stacking', e);
+      process.exit(1);
+    });
+EOM
+EOF
+
+# Bootstrap chainstates
+SHELL ["/bin/bash", "-ce"]
+RUN <<EOF
+  if [[ ! -z "${REWARD_RECIPIENT}" ]]; then
+    export REWARD_RECIPIENT_CONF="block_reward_recipient = \"$REWARD_RECIPIENT\""
+  fi
+
+  mkdir -p /chainstate/bitcoin-data
+  bitcoind &
+  BTCD_PID=$!
+  bitcoin-cli -rpcwait getmininginfo
+  bitcoin-cli -named createwallet wallet_name=main descriptors=false load_on_startup=true
+  bitcoin-cli -rpcwallet=main importprivkey $BTC_ADDR_WIF "" false
+  bitcoin-cli generatetoaddress 101 $BTC_ADDR
+
+  node event-observer.js &
+  EVENT_OBSERVER_PID=$!
+
+  export STACKS_EVENT_OBSERVER="127.0.0.1:3998"
+  mkdir -p /chainstate/stacks-blockchain-data
+  envsubst < config.toml.in > config.toml
+  stacks-node start --config config.toml &
+  STACKS_PID=$!
+
+  while true; do
+    HEIGHT=$(curl -s localhost:20443/v2/info | jq '.burn_block_height')
+    if [ "$HEIGHT" = "101" ]; then
+      echo "Stacks node caught up to Bitcoin block $HEIGHT"
+      break
+    fi
+    sleep 0.5s
+  done
+
+  DEFAULT_TIMEOUT=$(($(date +%s) + 30))
+  SENT_STACKING=0
+  while true; do
+    TX=$(bitcoin-cli -rpcwallet=main listtransactions '*' 1 0 true)
+    CONFS=$(echo "$TX" | jq '.[].confirmations')
+    if [ "$CONFS" = "0" ] || [ $(date +%s) -gt $DEFAULT_TIMEOUT ]; then
+      if [ $(date +%s) -gt $DEFAULT_TIMEOUT ]; then
+        echo "Timed out waiting for a mempool tx, mining a btc block..."
+      else
+        echo "Detected Stacks mining mempool tx, mining btc block..."
+      fi
+      bitcoin-cli generatetoaddress 1 $BTC_ADDR
+      DEFAULT_TIMEOUT=$(($(date +%s) + 30))
+      chain_height=$(bitcoin-cli getblockcount)
+      echo "Current Bitcoin chain height: $chain_height"
+    
+      POX_CONTRACT=$(curl -s localhost:20443/v2/pox | jq -r '.contract_id')
+      BURN_HEIGHT=$(curl -s localhost:20443/v2/pox | jq -r '.current_burnchain_block_height')
+      echo "POX contract check $BURN_HEIGHT $POX_CONTRACT"
+      if [ "$POX_CONTRACT" = "ST000000000000000000002AMW42H.pox-4" ] && [ "$SENT_STACKING" = "0" ]; then
+        echo "POX contract is pox-4"
+        SENT_STACKING=1
+        # issue a stack-stx tx, required for epoch3.0 transition
+        POX_STATE=$(curl -s localhost:20443/v2/pox)
+        echo "Stack STX tx for epoch3.0 transition"
+        echo "$POX_STATE" | jq '.'
+        MIN_STACKING_AMOUNT="8500000000000000"
+        BURN_HEIGHT=$(echo $POX_STATE | jq '.current_burnchain_block_height + 1')
+        node /root/stack.js $MIN_STACKING_AMOUNT $BURN_HEIGHT
+        sleep 5s
+      fi
+
+      if [ "$chain_height" = "$STACKS_PREHEAT_FINISH_HEIGHT" ]; then
+        break
+      fi
+
+    else
+      sleep 0.1s
+    fi
+  done
+
+
+  kill $STACKS_PID
+  wait $STACKS_PID
+
+  bitcoin-cli stop
+  wait $BTCD_PID
+
+  kill $EVENT_OBSERVER_PID
+EOF
+
+# Create run script
+RUN <<EOF
+cat > run.sh <<'EOM'
+#!/bin/bash -e
+
+  if [ -f "$BOOTSTRAP_EVENTS_FILE" ]; then
+    if [ -n "${STACKS_EVENT_OBSERVER}" ]; then
+      while read -r event_path; do
+        read -r event_payload
+        post_url="http://${STACKS_EVENT_OBSERVER}${event_path}"
+        echo "$event_payload" | curl -s --retry 150 --retry-delay 1 --retry-all-errors --show-error --fail -H 'Content-Type: application/json' -d @- "$post_url"
+      done < "$BOOTSTRAP_EVENTS_FILE"
+    fi
+    rm "$BOOTSTRAP_EVENTS_FILE"
+  fi
+
+  if [[ ! -z "${REWARD_RECIPIENT}" ]]; then
+    export REWARD_RECIPIENT_CONF="block_reward_recipient = \"$REWARD_RECIPIENT\""
+  fi
+
+  bitcoind &
+  BTCD_PID=$!
+
+  bitcoin-cli -rpcwait getmininginfo
+  bitcoin-cli -rpcwait generatetoaddress 1 $BTC_ADDR
+
+  envsubst < config.toml.in > config.toml
+  stacks-node start --config config.toml &
+  STACKS_PID=$!
+
+  function start_miner() {
+    while true; do
+      TX=$(bitcoin-cli -rpcwallet=main listtransactions '*' 1 0 true)
+      CONFS=$(echo "$TX" | jq '.[].confirmations')
+      if [ "$CONFS" = "0" ]; then
+        echo "Detected Stacks mining mempool tx, mining btc block..."
+        bitcoin-cli generatetoaddress 1 $BTC_ADDR
+      fi
+      sleep $MINE_INTERVAL
+    done
+  }
+  start_miner &
+
+  function cleanup() {
+    echo "Exiting, signal: $1"
+    kill $STACKS_PID 2>/dev/null && echo "Stacks exiting.."
+    wait $STACKS_PID 2>/dev/null && echo "Stacks exited"
+    kill $BTCD_PID 2>/dev/null && echo "Bitcoind exiting.."
+    wait $BTCD_PID 2>/dev/null && echo "Bitcoind exited"
+  }
+  trap "cleanup SIGTERM" SIGTERM
+  trap "cleanup SIGINT" SIGINT
+  trap "cleanup SIGHUP" SIGHUP
+  trap "cleanup EXIT" EXIT
+
+  wait
+EOM
+chmod +x run.sh
+EOF
+
+CMD ["/root/run.sh"]

@@ -1,0 +1,52 @@
+version: '3.7'
+
+services:
+  postgres:
+    image: "postgres:15"
+    ports:
+      - "5490:5490"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stacks_blockchain_api
+      PGPORT: 5490
+    networks:
+      - stacks
+
+  stacks-blockchain:
+    image: "hirosystems/stacks-api-e2e:stacks3.0-800259e"
+    ports:
+      - "18443:18443" # bitcoin regtest JSON-RPC interface
+      - "18444:18444" # bitcoin regtest p2p
+      - "20443:20443" # stacks-node RPC interface
+      - "20444:20444" # stacks-node p2p
+    environment:
+      MINE_INTERVAL: 0.1s
+      STACKS_EVENT_OBSERVER: stacks-blockchain-api:3700
+      # STACKS_LOG_TRACE: 1
+      # STACKS_LOG_DEBUG: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # fixes `host.docker.internal` on linux hosts
+    networks:
+      - stacks
+
+  stacks-blockchain-api:
+    image: "hirosystems/stacks-blockchain-api:latest"
+    platform: linux/amd64
+    ports:
+      - "3700:3700"
+      - "3999:3999"
+    environment:
+      PG_HOST: postgres
+      STACKS_CHAIN_ID: 0x80000000
+      STACKS_CORE_EVENT_HOST: 0.0.0.0
+      STACKS_API_ENABLE_ROSETTA: 0
+      STACKS_BLOCKCHAIN_API_HOST: 0.0.0.0
+      STACKS_API_MODE: default
+      STACKS_CORE_RPC_HOST: stacks-blockchain
+    networks:
+      - stacks
+
+networks:
+  stacks:
+    driver: bridge

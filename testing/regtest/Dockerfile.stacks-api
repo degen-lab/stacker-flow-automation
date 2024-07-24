@@ -1,0 +1,24 @@
+FROM node:20-bookworm as builder
+
+ARG GIT_COMMIT
+RUN test -n "$GIT_COMMIT" || (echo "GIT_COMMIT not set" && false)
+
+RUN echo "Building API from commit: https://github.com/hirosystems/stacks-blockchain-api/commit/$GIT_COMMIT"
+
+WORKDIR /stacks-api
+RUN git init && \
+    git remote add origin https://github.com/hirosystems/stacks-blockchain-api.git && \
+    git -c protocol.version=2 fetch --depth=1 origin "$GIT_COMMIT" && \
+    git reset --hard FETCH_HEAD && \
+    git fetch --all --tags
+
+RUN rm ".env"
+RUN git describe --tags --abbrev=0 || git -c user.name='user' -c user.email='email' tag vNext
+RUN echo "GIT_TAG=$(git tag --points-at HEAD)" >> .env
+
+RUN npm config set update-notifier false && \
+    npm ci --audit=false && \
+    npm run build && \
+    npm prune --omit=dev
+
+CMD ["node", "./lib/index.js"]
