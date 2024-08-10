@@ -17,15 +17,12 @@ x-common-vars:
 
 services:
   stacks-node-follower:
-    networks:
-      - stacks
+    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile.stacks-node
       args:
         GIT_COMMIT: *STACKS_BLOCKCHAIN_COMMIT
-    ports:
-      - "30443:20443"
     volumes:
       - ./stacks-krypton-follower.toml/:/root/config.toml.in
       - ./bitcoin.conf:/root/.bitcoin/bitcoin.conf
@@ -36,7 +33,7 @@ services:
       # STACKS_LOG_DEBUG: 1
       # STACKS_EVENT_OBSERVER: stacks-api:3700
       DATA_DIR: /chainstate/stacks-blockchain-follower-data
-      BITCOIN_PEER_HOST: bitcoind
+      BITCOIN_PEER_HOST: localhost
       BITCOIN_PEER_PORT: *BITCOIN_PEER_PORT
       BITCOIN_RPC_PORT: *BITCOIN_RPC_PORT
       BITCOIN_RPC_USER: *BITCOIN_RPC_USER

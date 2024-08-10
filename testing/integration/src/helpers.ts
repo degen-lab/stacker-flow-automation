@@ -247,7 +247,17 @@ export async function waitForRewardPhase(poxInfo: PoxInfo) {
   );
 }
 
-// export async function waitForCycle(cycle: number) {}
+export async function waitForCycle(poxInfo: PoxInfo, cycle: number) {
+  const currentCycle = poxInfo.current_cycle.id;
+  const fullCycles = cycle - currentCycle - 1;
+  if (fullCycles < 0) return;
+
+  return await waitForBurnBlockHeight(
+    (poxInfo.current_burnchain_block_height as number) +
+      poxInfo.next_reward_cycle_in +
+      fullCycles * poxInfo.reward_cycle_length
+  );
+}
 
 /**
  * Waits until the Stacks node reports the next nonce for the sender STX address.
@@ -271,10 +281,14 @@ export async function waitForBurnBlockHeight(
   interval: number = ENV.POLL_INTERVAL
 ): Promise<void> {
   let height: number = -1;
+  let lastHeight = -1;
   while (height < burnBlockHeight) {
     await timeout(interval);
     height = await getBurnBlockHeight();
-    console.log('waiting', height, '<', burnBlockHeight);
+    if (height != lastHeight) {
+      lastHeight = height;
+      console.log('waiting', height, '<', burnBlockHeight);
+    }
   }
 }
 

@@ -135,7 +135,7 @@ export const generateSignature = async (
   await sleep(10);
 
   const signerKey = convertPrivateKeyToPublicKey(SIGNER_PRIVATE_KEY as string);
-  const maxAmount = Number.MAX_SAFE_INTEGER;
+  const maxAmount = '340282366920938463463374607431768211455'; // Translates to 0xffffffffffffffffffffffffffffffff, biggest uIntCV possible
   const authId = Date.now();
 
   const signerSignature = poolClient.signPoxSignature({
