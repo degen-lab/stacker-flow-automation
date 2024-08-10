@@ -36,6 +36,7 @@ app.get('/data', async (_: any, res: any) => {
     const data = await fetchAllData();
     res.json(data);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to fetch data' });
   }
 });

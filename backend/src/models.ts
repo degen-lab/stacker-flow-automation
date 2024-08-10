@@ -51,6 +51,29 @@ export const createPendingTransactionsTable = `
   );
 `;
 
+export const createEventsTable = `
+  CREATE TABLE IF NOT EXISTS Events (
+    event_index INTEGER,
+    event_type TEXT,
+    tx_id TEXT,
+    contract_id TEXT,
+    topic TEXT,
+    hex TEXT,
+    repr TEXT
+  );
+`;
+
+export const createRewardIndexesTable = `
+  CREATE TABLE IF NOT EXISTS RewardIndexes (
+    cycle INTEGER,
+    rewardIndex INTEGER,
+    poxAddress TEXT,
+    signer TEXT,
+    stacker TEXT,
+    totalUstx TEXT
+  );
+`;
+
 export const clearDelegations = `
   DELETE FROM Delegations;
 `;
@@ -69,7 +92,15 @@ export const clearCommittedDelegations = `
 
 export const clearPendingTransactionsByTxid = `
   DELETE FROM PendingTransactions WHERE txid = ?
-  `;
+`;
+
+export const clearEvents = `
+  DELETE FROM Events;
+`;
+
+export const clearRewardIndexes = `
+  DELETE FROM RewardIndexes;
+`;
 
 export const insertDelegations = `
   INSERT INTO Delegations (stacker, startCycle, endCycle, poxAddress, amountUstx)
@@ -96,6 +127,16 @@ export const insertPendingTransactions = `
   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
+export const insertEvents = `
+  INSERT INTO Events (event_index, event_type, tx_id, contract_id, topic, hex, repr)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
+
+export const insertRewardIndexes = `
+  INSERT INTO RewardIndexes (cycle, rewardIndex, poxAddress, signer, stacker, totalUstx)
+  VALUES (?, ?, ?, ?, ?, ?)
+`;
+
 export const selectDelegations = `
   SELECT * FROM Delegations
 `;
@@ -114,4 +155,12 @@ export const selectCommittedDelegations = `
 
 export const selectPendingTransactions = `
   SELECT * FROM PendingTransactions
+`;
+
+export const selectEvents = `
+  SELECT * FROM Events
+`;
+
+export const selectRewardIndexes = `
+  SELECT * FROM RewardIndexes
 `;

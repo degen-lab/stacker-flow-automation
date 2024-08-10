@@ -2,10 +2,11 @@ import { fetchPoxInfo } from './api-calls';
 import { runConfigValidator } from './checks';
 import {
   checkAndBroadcastTransactions,
-  createTables as createAndClearTables,
+  createAndClearTables,
   getEvents,
   getRewardIndexesMap,
   parseEvents,
+  removeAnchoredTransactionsFromDatabase,
 } from './helpers';
 import {
   saveAcceptedDelegations,
@@ -36,9 +37,10 @@ const main = async () => {
         'blocks.'
       );
 
-      const events = await getEvents();
+      await createAndClearTables();
 
-      events.reverse();
+      const dbEntries = await removeAnchoredTransactionsFromDatabase();
+      const events = await getEvents();
 
       const rewardIndexesMap = await getRewardIndexesMap(currentCycle);
 
@@ -54,8 +56,6 @@ const main = async () => {
       console.log('Committed Delegations:', committedDelegations);
       console.log('Previous Delegations:', previousDelegations);
 
-      await createAndClearTables();
-
       await saveDelegations(delegations);
       await saveAcceptedDelegations(acceptedDelegations);
       await saveCommittedDelegations(committedDelegations);
@@ -66,7 +66,8 @@ const main = async () => {
         acceptedDelegations,
         committedDelegations,
         currentCycle,
-        currentBlock
+        currentBlock,
+        dbEntries
       );
 
       console.log('Data has been saved successfully.');

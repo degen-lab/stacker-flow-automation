@@ -99,7 +99,7 @@ export const fetchTransactionInfo = async (txid: string): Promise<any> => {
     return response.data;
   } catch (error: any) {
     if (error.response) {
-      if (error.response.status === 429) {
+      if (error.response.status !== 404) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
         return fetchTransactionInfo(txid);
       } else if (error.response.status === 404) {

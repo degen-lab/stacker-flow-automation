@@ -6,6 +6,8 @@ import {
   MAX_CYCLES_FOR_OPERATIONS,
   STACKS_NETWORK_INSTANCE,
   FIRST_POX_4_CYCLE,
+  NETWORK,
+  NetworkUsed,
 } from './consts';
 import {
   fetchData,
@@ -21,8 +23,10 @@ import {
   createAcceptedDelegationsTable,
   createCommittedDelegationsTable,
   createDelegationsTable,
+  createEventsTable,
   createPendingTransactionsTable,
   createPreviousDelegationsTable,
+  createRewardIndexesTable,
 } from './models';
 import { DatabaseEntry, AvailableTransaction } from './types';
 import {
@@ -34,9 +38,15 @@ import {
   sleep,
 } from './transactions';
 import {
+  deleteEvents,
   deletePendingTransaction,
+  deleteRewardIndexes,
+  getDatabaseEvents,
   getPendingTransactions,
+  getRewardIndexes,
+  saveEvents,
   savePendingTransaction,
+  saveRewardIndexes,
 } from './save-data';
 import { getNonce } from '@stacks/transactions';
 
@@ -136,149 +146,32 @@ export const parseStringToJSON = (input: string) => {
 export const getEvents = async () => {
   let offset = 0;
   let moreData = true;
+  let shouldDeleteEvents = true;
+
+  const rawEvents = [];
   const events = [];
+
+  const dbEvents = await getDatabaseEvents();
+  const isDbEventsEmpty = dbEvents.length === 0;
+  const lastDbEvent = isDbEventsEmpty ? null : dbEvents[dbEvents.length - 1];
 
   while (moreData) {
     const data = await fetchData(offset);
 
     if (data && data.length > 0) {
       for (const entry of data) {
-        if (entry.contract_log.value.repr.includes(POOL_OPERATOR)) {
-          const result = parseStringToJSON(entry.contract_log.value.repr);
-          if (result.name == 'delegate-stx') {
-            events.push({
-              name: result.name,
-              stacker: result.stacker,
-              amountUstx: result.data['amount-ustx'],
-              startCycle: result.data['start-cycle-id'],
-              endCycle: result.data['end-cycle-id'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
-          } else if (result.name == 'revoke-delegate-stx') {
-            events.push({
-              name: result.name,
-              stacker: result.stacker,
-              startCycle: result.data['start-cycle-id'],
-              endCycle: result.data['end-cycle-id'],
-            });
-          } else if (result.name == 'delegate-stack-stx') {
-            events.push({
-              name: result.name,
-              stacker: result.data.stacker,
-              amountUstx: result.data['lock-amount'],
-              startCycle: result.data['start-cycle-id'],
-              endCycle: result.data['end-cycle-id'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
-          } else if (result.name == 'delegate-stack-extend') {
-            events.push({
-              name: result.name,
-              stacker: result.data.stacker,
-              startCycle: result.data['start-cycle-id'],
-              endCycle: result.data['end-cycle-id'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
-          } else if (result.name == 'delegate-stack-increase') {
-            events.push({
-              name: result.name,
-              stacker: result.data.stacker,
-              startCycle: result.data['start-cycle-id'],
-              endCycle: result.data['end-cycle-id'],
-              increaseBy: result.data['increase-by'],
-              totalLocked: result.data['total-locked'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
-          } else if (
-            result.name == 'stack-aggregation-commit-indexed' ||
-            result.name == 'stack-aggregation-commit'
-          ) {
-            events.push({
-              name: result.name,
-              amountUstx: result.data['amount-ustx'],
-              cycle: result.data['reward-cycle'],
-              signerKey: result.data['signer-key'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
-          } else if (result.name == 'stack-aggregation-increase') {
-            events.push({
-              name: result.name,
-              amountUstx: result.data['amount-ustx'],
-              cycle: result.data['reward-cycle'],
-              rewardCycleIndex: result.data['reward-cycle-index'],
-              poxAddress:
-                result.data['pox-addr'] != null
-                  ? poxAddressToBtcAddress(
-                      parseInt(result.data['pox-addr'].version, 16),
-                      Uint8Array.from(
-                        Buffer.from(
-                          result.data['pox-addr'].hashbytes.slice(2),
-                          'hex'
-                        )
-                      ),
-                      STACKS_NETWORK_NAME
-                    )
-                  : null,
-            });
+        if (isDbEventsEmpty) {
+          rawEvents.push(entry);
+        } else {
+          const lastDbEventString = JSON.stringify(lastDbEvent);
+          const entryString = JSON.stringify(entry);
+
+          if (lastDbEventString !== entryString) {
+            rawEvents.push(entry);
+          } else {
+            shouldDeleteEvents = false;
+            moreData = false;
+            break;
           }
         }
       }
@@ -287,6 +180,158 @@ export const getEvents = async () => {
       moreData = false;
     }
   }
+
+  rawEvents.reverse();
+  const parsedEvents =
+    shouldDeleteEvents === true ? rawEvents : dbEvents.concat(rawEvents);
+
+  for (const entry of parsedEvents) {
+    if (entry.contract_log.value.repr.includes(POOL_OPERATOR)) {
+      const result = parseStringToJSON(entry.contract_log.value.repr);
+      if (result.name == 'delegate-stx') {
+        events.push({
+          name: result.name,
+          stacker: result.stacker,
+          amountUstx: result.data['amount-ustx'],
+          startCycle: result.data['start-cycle-id'],
+          endCycle: result.data['end-cycle-id'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      } else if (result.name == 'revoke-delegate-stx') {
+        events.push({
+          name: result.name,
+          stacker: result.stacker,
+          startCycle: result.data['start-cycle-id'],
+          endCycle: result.data['end-cycle-id'],
+        });
+      } else if (result.name == 'delegate-stack-stx') {
+        events.push({
+          name: result.name,
+          stacker: result.data.stacker,
+          amountUstx: result.data['lock-amount'],
+          startCycle: result.data['start-cycle-id'],
+          endCycle: result.data['end-cycle-id'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      } else if (result.name == 'delegate-stack-extend') {
+        events.push({
+          name: result.name,
+          stacker: result.data.stacker,
+          startCycle: result.data['start-cycle-id'],
+          endCycle: result.data['end-cycle-id'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      } else if (result.name == 'delegate-stack-increase') {
+        events.push({
+          name: result.name,
+          stacker: result.data.stacker,
+          startCycle: result.data['start-cycle-id'],
+          endCycle: result.data['end-cycle-id'],
+          increaseBy: result.data['increase-by'],
+          totalLocked: result.data['total-locked'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      } else if (
+        result.name == 'stack-aggregation-commit-indexed' ||
+        result.name == 'stack-aggregation-commit'
+      ) {
+        events.push({
+          name: result.name,
+          amountUstx: result.data['amount-ustx'],
+          cycle: result.data['reward-cycle'],
+          signerKey: result.data['signer-key'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      } else if (result.name == 'stack-aggregation-increase') {
+        events.push({
+          name: result.name,
+          amountUstx: result.data['amount-ustx'],
+          cycle: result.data['reward-cycle'],
+          rewardCycleIndex: result.data['reward-cycle-index'],
+          signerKey: result.data['signer-key'],
+          poxAddress:
+            result.data['pox-addr'] != null
+              ? poxAddressToBtcAddress(
+                  parseInt(result.data['pox-addr'].version, 16),
+                  Uint8Array.from(
+                    Buffer.from(
+                      result.data['pox-addr'].hashbytes.slice(2),
+                      'hex'
+                    )
+                  ),
+                  STACKS_NETWORK_NAME
+                )
+              : null,
+        });
+      }
+    }
+  }
+
+  if (shouldDeleteEvents === true) {
+    await deleteEvents();
+  }
+
+  await saveEvents(rawEvents);
 
   return events;
 };
@@ -417,7 +462,15 @@ export const parseEvents = async (events: any, rewardIndexesMap: any) => {
           if (existingList) {
             const entry = existingList.find((e: any) => e.startCycle === cycle);
             if (entry) {
+              const rewardIndex = getRewardIndexForCycleAndAddress(
+                cycle,
+                poxAddress,
+                signerKey,
+                entry.amountUstx + amountUstx,
+                rewardIndexesMap
+              );
               entry.amountUstx += amountUstx;
+              entry.rewardIndex = rewardIndex;
             }
           }
         }
@@ -471,7 +524,23 @@ const getRewardIndexForCycleAndAddress = (
 
 export const getRewardIndexesMap = async (currentCycle: number) => {
   const map = new Map();
-  let rewardCycle = FIRST_POX_4_CYCLE;
+
+  let dbRewardIndexes = await getRewardIndexes();
+  let lastCycle = -1;
+
+  for (const [cycle] of dbRewardIndexes) {
+    if (cycle > lastCycle) {
+      lastCycle = cycle;
+    }
+  }
+
+  if (lastCycle > currentCycle) {
+    await deleteRewardIndexes();
+    dbRewardIndexes = new Map();
+    lastCycle = -1;
+  }
+
+  let rewardCycle = lastCycle === -1 ? FIRST_POX_4_CYCLE : lastCycle + 1;
   let rewardIndex = 0;
   let continueFetching = true;
 
@@ -530,15 +599,28 @@ export const getRewardIndexesMap = async (currentCycle: number) => {
     rewardIndex++;
   }
 
-  return map;
+  const rewardIndexesToSave = new Map();
+  for (let cycle = lastCycle + 1; cycle <= currentCycle; cycle++) {
+    if (map.has(cycle)) {
+      rewardIndexesToSave.set(cycle, map.get(cycle));
+    }
+  }
+
+  await saveRewardIndexes(rewardIndexesToSave);
+
+  const allEntries = new Map([...dbRewardIndexes, ...map]);
+
+  return allEntries;
 };
 
-export const createTables = async () => {
+export const createAndClearTables = async () => {
   await query(createDelegationsTable);
   await query(createAcceptedDelegationsTable);
   await query(createCommittedDelegationsTable);
   await query(createPreviousDelegationsTable);
   await query(createPendingTransactionsTable);
+  await query(createEventsTable);
+  await query(createRewardIndexesTable);
 
   await clearTables();
 };
@@ -571,10 +653,10 @@ export const wasTransactionBroadcasted = (
 const processTransactions = async (
   availableTransactions: any,
   nonce: bigint,
-  poolClient: StackingClient
+  poolClient: StackingClient,
+  dbEntries: any
 ) => {
   let localNonce = nonce;
-  const dbEntries = await removeAnchoredTransactionsFromDatabase();
 
   for (const transaction of availableTransactions) {
     if (!wasTransactionBroadcasted(dbEntries, transaction)) {
@@ -724,18 +806,22 @@ export const checkAvailableTransactions = (
         poxAddress: value.poxAddress,
         maxCycles,
       };
-      availableTransactions.push(operation);
+      if (maxCycles > 0) {
+        availableTransactions.push(operation);
+      }
     }
   });
 
   acceptedDelegations.forEach(async (delegationList: any, key: any) => {
     const delegation = delegations.get(key);
     if (delegation) {
+      const extendOffset = MAX_CYCLES === 12 ? 0 : 1;
+
       const maxExtendCycles = Math.min(
         MAX_CYCLES -
           (delegationList[delegationList.length - 1].endCycle -
             currentCycle -
-            1),
+            extendOffset),
         delegation.endCycle !== null
           ? delegation.endCycle - currentCycle - 1
           : MAX_CYCLES,
@@ -783,17 +869,20 @@ export const checkAvailableTransactions = (
     const maxEndCycleList = Math.max(
       ...acceptedDelegationsForAddress.map((d) => d.endCycle)
     );
-    const maxEndCycle = Math.max(currentCycle + MAX_CYCLES, maxEndCycleList);
+    const maxEndCycle = Math.min(
+      currentCycle + MAX_CYCLES + 1,
+      maxEndCycleList
+    );
 
     const startCycleList = Math.min(
       ...acceptedDelegationsForAddress.map((d) => d.startCycle)
     );
-    const startCycle = Math.min(currentCycle + 1, startCycleList);
+    const startCycle = Math.max(currentCycle + 1, startCycleList);
 
     if (!committedDelegations.has(address)) {
       for (
         let rewardCycle = startCycle;
-        rewardCycle <= maxEndCycle;
+        rewardCycle < maxEndCycle;
         rewardCycle++
       ) {
         const operation = {
@@ -896,7 +985,8 @@ export const checkAndBroadcastTransactions = async (
   acceptedDelegations: any,
   committedDelegations: any,
   currentCycle: number,
-  currentBlock: number
+  currentBlock: number,
+  dbEntries: any
 ) => {
   const nonce = await getNonce(
     POOL_OPERATOR as string,
@@ -942,6 +1032,11 @@ export const checkAndBroadcastTransactions = async (
       currentBlock
     );
 
-  await processTransactions(availableTransactions, nonce, poolClient);
-  await sleep(10000);
+  await processTransactions(
+    availableTransactions,
+    nonce,
+    poolClient,
+    dbEntries
+  );
+  await sleep(7500);
 };
