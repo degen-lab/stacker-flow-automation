@@ -82,7 +82,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: 'src/database/mainnet-pox-events.sqlite',
+    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/mainnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 84,
   },
   [NetworkUsed.Testnet]: {
@@ -98,7 +98,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: 'src/database/testnet-pox-events.sqlite',
+    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/testnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
   [NetworkUsed.NakamotoTestnet]: {
@@ -114,7 +114,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: 'src/database/nakamoto-testnet-pox-events.sqlite',
+    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/nakamoto-testnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
   [NetworkUsed.Devnet]: {
@@ -130,7 +130,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: 'src/database/devnet-pox-events.sqlite',
+    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/devnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
 };
