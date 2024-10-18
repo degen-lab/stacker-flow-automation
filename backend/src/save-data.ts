@@ -100,10 +100,10 @@ export const saveEvents = async (events: any) => {
       event_index,
       event_type,
       tx_id,
-      contract_log.contract_id,
-      contract_log.topic,
-      contract_log.value.hex,
-      contract_log.value.repr,
+      contract_log?.contract_id || null,
+      contract_log?.topic || null,
+      contract_log?.value.hex || null,
+      contract_log?.value.repr || null,
     ]);
   }
 };
