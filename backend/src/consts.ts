@@ -82,7 +82,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/mainnet-pox-events.sqlite',
+    DATABASE_FILE: 'mainnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 84,
   },
   [NetworkUsed.Testnet]: {
@@ -98,7 +98,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/testnet-pox-events.sqlite',
+    DATABASE_FILE: 'testnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
   [NetworkUsed.NakamotoTestnet]: {
@@ -114,7 +114,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/nakamoto-testnet-pox-events.sqlite',
+    DATABASE_FILE: 'nakamoto-testnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
   [NetworkUsed.Devnet]: {
@@ -130,7 +130,7 @@ const API_CONFIG = {
     POOL_BTC_ADDRESS: process.env.POOL_BTC_ADDRESS,
     POOL_PRIVATE_KEY: process.env.POOL_PRIVATE_KEY,
     SIGNER_PRIVATE_KEY: process.env.SIGNER_PRIVATE_KEY,
-    DATABASE_PATH: process.env.DATABASE_PATH || 'src/database/devnet-pox-events.sqlite',
+    DATABASE_FILE: 'devnet-pox-events.sqlite',
     FIRST_POX_4_CYCLE: 1,
   },
 };
@@ -143,7 +143,7 @@ export const REWARD_INDEXES_API_URL = currentConfig.REWARD_INDEXES_API_URL;
 export const GET_TRANSACTION_API_URL = currentConfig.GET_TRANSACTION_API_URL;
 export const POX_CONTRACT_ADDRESS = currentConfig.POX_CONTRACT_ADDRESS;
 export const POOL_OPERATOR = currentConfig.POOL_OPERATOR;
-export const DATABASE_PATH = currentConfig.DATABASE_PATH;
+export const DATABASE_PATH = process.env.DATABASE_PATH ? `${process.env.DATABASE_PATH}/${currentConfig.DATABASE_FILE}`: `src/database/${currentConfig.DATABASE_FILE}`;
 export const POOL_BTC_ADDRESS = currentConfig.POOL_BTC_ADDRESS;
 export const POOL_PRIVATE_KEY = currentConfig.POOL_PRIVATE_KEY;
 export const SIGNER_PRIVATE_KEY = currentConfig.SIGNER_PRIVATE_KEY;
