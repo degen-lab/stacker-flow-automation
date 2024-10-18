@@ -3,6 +3,7 @@ import {
   LIMIT,
   STACKS_NETWORK_NAME,
   POOL_OPERATOR,
+  POX_CONTRACT_ADDRESS,
   MAX_CYCLES_FOR_OPERATIONS,
   STACKS_NETWORK_INSTANCE,
   FIRST_POX_4_CYCLE,
@@ -186,7 +187,7 @@ export const getEvents = async () => {
     shouldDeleteEvents === true ? rawEvents : dbEvents.concat(rawEvents);
 
   for (const entry of parsedEvents) {
-    if (entry?.contract_log?.contract_id === 'SP000000000000000000002Q6VF78.pox-4' && entry?.contract_log?.value?.repr?.includes(POOL_OPERATOR)) {
+    if (entry?.contract_log?.contract_id === POX_CONTRACT_ADDRESS && entry?.contract_log?.value?.repr?.includes(POOL_OPERATOR)) {
       const result = parseStringToJSON(entry.contract_log.value.repr);
       if (result.name == 'delegate-stx') {
         events.push({
