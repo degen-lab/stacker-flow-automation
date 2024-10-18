@@ -186,7 +186,7 @@ export const getEvents = async () => {
     shouldDeleteEvents === true ? rawEvents : dbEvents.concat(rawEvents);
 
   for (const entry of parsedEvents) {
-    if (entry.contract_log.value.repr.includes(POOL_OPERATOR)) {
+    if (entry?.contract_log?.value?.repr?.includes(POOL_OPERATOR)) {
       const result = parseStringToJSON(entry.contract_log.value.repr);
       if (result.name == 'delegate-stx') {
         events.push({
