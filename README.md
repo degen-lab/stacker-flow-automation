@@ -12,7 +12,7 @@ In this repository, you can find 3 components:
 * `frontend` - a simplist fronend that shows useful information regarding the stacking status of the pool
 * `testing` - integration testing that spins up a devnet node instance and simulates the flow that a pool is going through
 
-## Prerequisites
+### Prerequisites
 
 In order to run this application, you'll need to first install `npm` and `git` packages, then clone this repository.
 
