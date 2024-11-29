@@ -7,20 +7,22 @@ It functions by continuously monitoring PoX events through the Hiro API, identif
 The application also includes a straightforward front-end interface, allowing for easily tracking and managing of the pool's stacking status.
 
 In this repository, you can find 3 components:
-- `backend` - the application that automates the stacking transactions
-- `frontend` - a simplist fronend that shows useful information regarding the stacking status of the pool
-- `testing` - integration testing that spins up a devnet node instance and simulates the flow that a pool is going through
 
-### Prerequisites
+* `backend` - the application that automates the stacking transactions
+* `frontend` - a simplist fronend that shows useful information regarding the stacking status of the pool
+* `testing` - integration testing that spins up a devnet node instance and simulates the flow that a pool is going through
+
+## Prerequisites
 
 In order to run this application, you'll need to first install `npm` and `git` packages, then clone this repository.
+
 ```bash
 $ sudo apt install npm && \
   git clone https://github.com/degen-lab/stacker-flow-automation && \
   cd stacker-flow-automation
 ```
 
----
+***
 
 ## Backend
 
@@ -29,11 +31,12 @@ $ sudo apt install npm && \
 This is the main application, and its purpose is to find and broadcast available stacking transactions for pools. It can be run as a standalone application, without the need of running the `frontend` or the `testing` packages.
 
 The contract calls that are being automated by this application are:
-- `delegate-stack-stx`
-- `delegate-stack-extend`
-- `delegate-stack-increase`
-- `stack-aggregation-commit-indexed`
-- `stack-aggregation-increase`
+
+* `delegate-stack-stx`
+* `delegate-stack-extend`
+* `delegate-stack-increase`
+* `stack-aggregation-commit-indexed`
+* `stack-aggregation-increase`
 
 It will print information regarding the current status of PoX, the pool's stacking status, and logs about the broadcasted transactions.
 
@@ -42,12 +45,14 @@ It will print information regarding the current status of PoX, the pool's stacki
 The setup assumes you have gone through the prerequisites (installed `npm`, `git` and cloned the repository).
 
 Firstly, you have to install the required packages through `npm`:
+
 ```bash
 $ cd backend && \
   npm i
 ```
 
 The `backend` folder contains an `.env.example` file that you have to modify with your pool data:
+
 ```bash
 # The stacks network
 # Possible options:
@@ -74,21 +79,22 @@ MAX_CYCLES_FOR_OPERATIONS="12"
 ```
 
 After you have modified the `.env.example` file, you then have move it to `.env`:
+
 ```bash
 $ mv .env.example .env
 ```
 
 In the end, the application can be run using a `npm` script:
+
 ```bash
 $ npm run start
 ```
 
 Note: The application makes requests to Hiro's hosted API, so if you have other applications running/websites open that also use Hiro's API (e.g. Hiro Explorer, LockStacks etc.), the performance of the application will be reduced, as it waits until the rate limits are gone.
 
-Note: First run is expected to take over 15 minutes on `mainnet` due to the amount of PoX events it has to fetch, but successive runs are quicker because the application saves the previously processed events into a database.
-The application will run in a continuous loop, if you want to stop it, you'll have to send a `Ctrl+C` signal.
+Note: First run is expected to take over 15 minutes on `mainnet` due to the amount of PoX events it has to fetch, but successive runs are quicker because the application saves the previously processed events into a database. The application will run in a continuous loop, if you want to stop it, you'll have to send a `Ctrl+C` signal.
 
----
+***
 
 ## Frontend
 
@@ -97,11 +103,12 @@ The application will run in a continuous loop, if you want to stop it, you'll ha
 The frontend package was written as a wrapper above the database created by the backend, and is used to see the pending (broadcasted) transactions, active/previous delegations, along with the accepted and the committed delegations for the pool.
 
 The frontend contains tables for each of these statuses:
-- `Delegations`: Each row will symbolize the data of an active or non-revoked `delegate-stx` call that was made to this pool.
-- `Previous Delegations`: Each row contains the data of revoked delegations (`revoke-delegate-stx`), in the same format as the `Delegations` table.
-- `Accepted Delegations`: These rows represent the data of calls made by the pool operator to accept a stacker's delegation - `delegate-stack-stx`, `delegate-stack-extend` and `delegate-stack-increase`.
-- `Committed Delegations`: These rows conist of the data of calls made by the pool operator to commit (stack) one or more delegations to a PoX address - `stack-aggregation-commit-indexed` and `stack-aggregation-increase`.
-- `Pending Transactions`: The rows of this table are the transactions that this application has broadcasted and their status is still `pending` in the mempool. They will be removed from this table once they are anchored.
+
+* `Delegations`: Each row will symbolize the data of an active or non-revoked `delegate-stx` call that was made to this pool.
+* `Previous Delegations`: Each row contains the data of revoked delegations (`revoke-delegate-stx`), in the same format as the `Delegations` table.
+* `Accepted Delegations`: These rows represent the data of calls made by the pool operator to accept a stacker's delegation - `delegate-stack-stx`, `delegate-stack-extend` and `delegate-stack-increase`.
+* `Committed Delegations`: These rows conist of the data of calls made by the pool operator to commit (stack) one or more delegations to a PoX address - `stack-aggregation-commit-indexed` and `stack-aggregation-increase`.
+* `Pending Transactions`: The rows of this table are the transactions that this application has broadcasted and their status is still `pending` in the mempool. They will be removed from this table once they are anchored.
 
 ### Setup & Running
 
@@ -110,6 +117,7 @@ The setup assumes you have gone through the prerequisites (installed `npm`, `git
 Since the frontend is tied to the database into which the backend writes, you have to first run the backend. The frontend will print the data of the latest iteration through the events of the backend, so if the backend is not running, the data might become outdated.
 
 To run the frontend, you'll need 2 terminal sessions. In the first one, you have to start the backend's server that reads the data from the database and listens to requests:
+
 ```bash
 $ cd backend && \
   npm run server
@@ -118,12 +126,14 @@ $ cd backend && \
 ```
 
 In the second terminal session, you have to navigate to the `frontend` folder and install the required packages through `npm`:
+
 ```bash
 $ cd frontend && \
   npm i
 ```
 
 The `frontend` folder contains an `.env.example` file that you have to modify with your network and server data:
+
 ```bash
 # The stacks network
 # Possible options:
@@ -138,18 +148,20 @@ NEXT_PUBLIC_SERVER_URL="http://localhost:8080"
 ```
 
 After you have modified the `.env.example` file, you then have move it to `.env`:
+
 ```bash
 $ mv .env.example .env
 ```
 
 In the end, the application can be run using a `npm` script:
+
 ```bash
 $ npm run start
 ```
 
 Note: Since the frontend is tied to the backend's database, the data might become outdated if you're not actively running the backend alongside.
 
----
+***
 
 ## Testing
 
@@ -166,11 +178,13 @@ Note: Due to the way the devnet instance is running and the amount of operations
 In order to run the tests, you'll need to install docker engine (or desktop) and docker compose on your machine: https://docs.docker.com/compose/install/.
 
 You'll also have to install `node` package for the CLI:
+
 ```bash
 $ sudo apt install nodejs
 ```
 
 First, you'll have to ensure that the `.env` in `backend` folder contains the provided `devnet` setup (from `.env.example`):
+
 ```bash
 NETWORK="devnet"
 POOL_OPERATOR="ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND"
@@ -181,12 +195,14 @@ MAX_CYCLES_FOR_OPERATIONS="12"
 ```
 
 Navigate to the `stacker-flow-automation/testing/integration` folder and install the required `npm` packages:
+
 ```bash
 $ cd stacker-flow-automation/testing/integration && \
   npm i
 ```
 
 Afterwards, you have to modify the `.env.example` in the `testing/integration` folder:
+
 ```bash
 # These should be left as they are
 STACKS_CHAIN=testnet
@@ -209,6 +225,7 @@ REGTEST_DOWN_CMD=cd /path/to/stacker-flow-automation/testing/regtest && docker c
 ```
 
 Then, you have to rename the `.env.example` file to `.env`:
+
 ```bash
 $ mv .env.example .env
 ```
@@ -216,6 +233,7 @@ $ mv .env.example .env
 To ensure that the tests are being run as expected, you should only run 1 test at once, as mentioned in the note of the `Description` section.
 
 To run the tests:
+
 ```bash
 # Change `/path/to/stacker-flow-automation/testing/regtest` to your path to the `regtest` folder in the 2 appearances in this command
 $ node 'node_modules/.bin/jest' '/path/to/stacker-flow-automation/testing/integration/src/tests/automation.test.ts' -c '/path/to/stacker-flow-automation/testing/integration/jest.config.js' -t 'Stacks transactions'
