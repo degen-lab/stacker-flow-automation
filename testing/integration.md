@@ -1,6 +1,10 @@
-# stacks-functional-tests
+---
+description: A repo for running functional tests on Stacks.
+---
 
-> A repo for running functional tests on Stacks.
+# Integration Testing
+
+> from [https://github.com/hirosystems/stacks-functional-tests](https://github.com/hirosystems/stacks-functional-tests)
 
 `src/tests` consists of suites of tests that can be run independently against different network setups. For example, we might run a suite against a full regtest, while another suite runs against clarinet, or another runs against live testnet.
 

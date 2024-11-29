@@ -1,6 +1,10 @@
-# Stacks Regtest Environment
+---
+description: Easily run a Stacks node in Kypton mode with a Bitcoind regtest instance
+---
 
-Easily run a Stacks node in Kypton mode with a Bitcoind regtest instance
+# Regtest Environment
+
+> from [https://github.com/hirosystems/stacks-regtest-env](https://github.com/hirosystems/stacks-regtest-env)
 
 ## Self-contained Stacks 3.0 image
 
@@ -23,7 +27,7 @@ This will output the logs from each service. You can view the logs for a single 
 docker-compose logs $service_name
 ```
 
-Add `-f` to automatically follow new logs. The service names can be found in [./docker-compose.yml](docker-compose.yml), such as `stacks-node`, `signer-0`, and `monitor`.
+Add `-f` to automatically follow new logs. The service names can be found in [./docker-compose.yml](regtest/docker-compose.yml), such as `stacks-node`, `signer-0`, and `monitor`.
 
 ## Self-contained Stacks 2.1 image
 
@@ -125,7 +129,7 @@ REWARD_RECIPIENT=STQM73RQC4EX0A07KWG1J5ECZJYBZS4SJ4ERC6WN MINE_INTERVAL=2.5s doc
 **Stacks-node in kypton mode (i.e. a regtest-like local testnet)**
 
 * RPC available at http://localhost:20443/v2/info
-* STX are preseeded to several accounts listed in [`stacks-krypton-miner.toml`](stacks-krypton-miner.toml), first account:
+* STX are preseeded to several accounts listed in [`stacks-krypton-miner.toml`](regtest/stacks-krypton-miner.toml), first account:
   * Address: `STB44HYPYAT2BB2QE513NSP81HTMYWBJP02HPGK6`
   * Key: `cb3df38053d132895220b9ce471f6b676db5b9bf0b4adefb55f2118ece2478df01`
 

@@ -1,4 +1,4 @@
-# Stacker Flow Automation
+# Overview
 
 This application is designed to automate stacking transactions for pool operators within a local environment, removing the need for an additional smart contract layer or manual intervention with the PoX-4 contract.
 
@@ -12,7 +12,7 @@ In this repository, you can find 3 components:
 * `frontend` - a simplist fronend that shows useful information regarding the stacking status of the pool
 * `testing` - integration testing that spins up a devnet node instance and simulates the flow that a pool is going through
 
-### Prerequisites
+## Prerequisites
 
 In order to run this application, you'll need to first install `npm` and `git` packages, then clone this repository.
 
