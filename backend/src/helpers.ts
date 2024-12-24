@@ -3,6 +3,7 @@ import {
   LIMIT,
   STACKS_NETWORK_NAME,
   POOL_OPERATOR,
+  POOL_BTC_ADDRESS,
   POX_CONTRACT_ADDRESS,
   MAX_CYCLES_FOR_OPERATIONS,
   STACKS_NETWORK_INSTANCE,
@@ -799,16 +800,18 @@ export const checkAvailableTransactions = (
           : MAX_CYCLES,
         MAX_CYCLES
       );
-      const operation = {
-        functionName: 'delegate-stack-stx',
-        stacker: key,
-        amountUstx: value.amountUstx,
-        currentBlock,
-        poxAddress: value.poxAddress,
-        maxCycles,
-      };
-      if (maxCycles > 0) {
-        availableTransactions.push(operation);
+      if (value.poxAddress == null || value.poxAddress == POOL_BTC_ADDRESS) {
+        const operation = {
+          functionName: 'delegate-stack-stx',
+          stacker: key,
+          amountUstx: value.amountUstx,
+          currentBlock,
+          poxAddress: value.poxAddress,
+          maxCycles,
+        };
+        if (maxCycles > 0) {
+          availableTransactions.push(operation);
+        }
       }
     }
   });
@@ -839,7 +842,7 @@ export const checkAvailableTransactions = (
         const operation = {
           functionName: 'delegate-stack-extend',
           stacker: key,
-          poxAddress: delegationList[delegationList.length - 1].poxAddress,
+          poxAddress: POOL_BTC_ADDRESS,
           maxExtendCycles,
         };
         availableTransactions.push(operation);
@@ -850,7 +853,7 @@ export const checkAvailableTransactions = (
         const operation = {
           functionName: 'delegate-stack-increase',
           stacker: key,
-          poxAddress: delegationList[delegationList.length - 1].poxAddress,
+          poxAddress: POOL_BTC_ADDRESS,
           increaseAmount,
         };
         availableTransactions.push(operation);
@@ -858,63 +861,57 @@ export const checkAvailableTransactions = (
     }
   });
 
-  const poxAddressSet = new Set(
-    [...acceptedDelegations.values()].flat().map((d) => d.poxAddress)
+  const acceptedDelegationsForAddress = [...acceptedDelegations.entries()]
+    .flatMap(([_, delegations]) => delegations)
+    .filter((d) => d.poxAddress === POOL_BTC_ADDRESS);
+
+  const maxEndCycleList = Math.max(
+    ...acceptedDelegationsForAddress.map((d) => d.endCycle)
+  );
+  const maxEndCycle = Math.min(
+    currentCycle + MAX_CYCLES + 1,
+    maxEndCycleList
   );
 
-  poxAddressSet.forEach(async (address) => {
-    const acceptedDelegationsForAddress = [...acceptedDelegations.entries()]
-      .flatMap(([_, delegations]) => delegations)
-      .filter((d) => d.poxAddress === address);
+  const startCycleList = Math.min(
+    ...acceptedDelegationsForAddress.map((d) => d.startCycle)
+  );
+  const startCycle = Math.max(currentCycle + 1, startCycleList);
 
-    const maxEndCycleList = Math.max(
-      ...acceptedDelegationsForAddress.map((d) => d.endCycle)
-    );
-    const maxEndCycle = Math.min(
-      currentCycle + MAX_CYCLES + 1,
-      maxEndCycleList
+  if (!committedDelegations.has(POOL_BTC_ADDRESS)) {
+    for (
+      let rewardCycle = startCycle;
+      rewardCycle < maxEndCycle;
+      rewardCycle++
+    ) {
+      const operation = {
+        functionName: 'stack-aggregation-commit-indexed',
+        poxAddress: POOL_BTC_ADDRESS,
+        rewardCycle,
+      };
+      availableTransactions.push(operation);
+    }
+  } else {
+    const committedDelegationsForAddress = committedDelegations.get(POOL_BTC_ADDRESS);
+    const currentCommittedEndCycle = Math.max(
+      ...committedDelegationsForAddress.map((d: any) => d.endCycle)
     );
 
-    const startCycleList = Math.min(
-      ...acceptedDelegationsForAddress.map((d) => d.startCycle)
-    );
-    const startCycle = Math.max(currentCycle + 1, startCycleList);
-
-    if (!committedDelegations.has(address)) {
+    if (currentCommittedEndCycle < maxEndCycle) {
       for (
-        let rewardCycle = startCycle;
+        let rewardCycle = currentCommittedEndCycle;
         rewardCycle < maxEndCycle;
         rewardCycle++
       ) {
         const operation = {
           functionName: 'stack-aggregation-commit-indexed',
-          poxAddress: address,
+          poxAddress: POOL_BTC_ADDRESS,
           rewardCycle,
         };
         availableTransactions.push(operation);
       }
-    } else {
-      const committedDelegationsForAddress = committedDelegations.get(address);
-      const currentCommittedEndCycle = Math.max(
-        ...committedDelegationsForAddress.map((d: any) => d.endCycle)
-      );
-
-      if (currentCommittedEndCycle < maxEndCycle) {
-        for (
-          let rewardCycle = currentCommittedEndCycle;
-          rewardCycle < maxEndCycle;
-          rewardCycle++
-        ) {
-          const operation = {
-            functionName: 'stack-aggregation-commit-indexed',
-            poxAddress: address,
-            rewardCycle,
-          };
-          availableTransactions.push(operation);
-        }
-      }
     }
-  });
+  }
 
   const temporaryMap = new Map();
 
