@@ -15,8 +15,12 @@ import {
   uintCV,
 } from '@stacks/transactions';
 
-export const fetchData = async (offset: number): Promise<any> => {
+export const fetchData = async (offset: number, retry = 0): Promise<any> => {
   try {
+    if (retry > 6) {
+      return null;
+    };
+
     const response = await axios.get(API_URL, {
       params: {
         address: POX_CONTRACT_ADDRESS,
@@ -28,9 +32,9 @@ export const fetchData = async (offset: number): Promise<any> => {
     return response.data.events;
   } catch (error: any) {
     if (error.response) {
-      if (error.response.status === 429) {
+      if (error.response.status !== 404) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
-        return fetchData(offset);
+        return fetchData(offset, retry + 1);
       } else {
         console.error(`Error: ${error}`);
       }
@@ -41,16 +45,20 @@ export const fetchData = async (offset: number): Promise<any> => {
   }
 };
 
-export const fetchPoxInfo = async (): Promise<any> => {
+export const fetchPoxInfo = async (retry = 0): Promise<any> => {
   try {
+    if (retry > 6) {
+      return null;
+    };
+
     const response = await axios.get(POX_INFO_URL);
 
     return response.data;
   } catch (error: any) {
     if (error.response) {
-      if (error.response.status === 429) {
+      if (error.response.status !== 404) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
-        return fetchPoxInfo();
+        return fetchPoxInfo(retry + 1);
       } else {
         console.error(`Error fetching PoX info: ${error}`);
       }
@@ -63,9 +71,14 @@ export const fetchPoxInfo = async (): Promise<any> => {
 
 export const fetchRewardCycleIndex = async (
   rewardCycle: number,
-  index: number
+  index: number,
+  retry = 0,
 ): Promise<any> => {
   try {
+    if (retry > 6) {
+      return null;
+    };
+
     const data = cvToHex(
       tupleCV({ 'reward-cycle': uintCV(rewardCycle), index: uintCV(index) })
     );
@@ -79,9 +92,9 @@ export const fetchRewardCycleIndex = async (
     return cvToJSON(hexToCV(response.data.data));
   } catch (error: any) {
     if (error.response) {
-      if (error.response.status === 429) {
+      if (error.response.status !== 404) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
-        return fetchRewardCycleIndex(rewardCycle, index);
+        return fetchRewardCycleIndex(rewardCycle, index, retry + 1);
       } else {
         console.error(`Error fetching reward cycle index info: ${error}`);
       }
@@ -92,16 +105,20 @@ export const fetchRewardCycleIndex = async (
   }
 };
 
-export const fetchTransactionInfo = async (txid: string): Promise<any> => {
+export const fetchTransactionInfo = async (txid: string, retry = 0): Promise<any> => {
   try {
-    const response = await axios.get(GET_TRANSACTION_API_URL(txid));
+    if (retry > 6) {
+      return null;
+    };
+
+    const response = await axios.get(GET_TRANSACTION_API_URL(txid.startsWith('0x') ? txid : `0x${txid}`));
 
     return response.data;
   } catch (error: any) {
     if (error.response) {
       if (error.response.status !== 404) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
-        return fetchTransactionInfo(txid);
+        return fetchTransactionInfo(txid, retry + 1);
       } else if (error.response.status === 404) {
         return null;
       } else {
