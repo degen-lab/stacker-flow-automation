@@ -15,6 +15,7 @@ import {
   savePreviousDelegations,
 } from './save-data';
 import { sleep } from './transactions';
+import { LOOP_SLEEP_TIME } from './consts';
 
 const main = async () => {
   runConfigValidator();
@@ -75,6 +76,7 @@ const main = async () => {
         );
   
         console.log('Data has been saved successfully.');
+        await sleep(LOOP_SLEEP_TIME);
       } else {
         console.log(
           "We're in the prepare phase for cycle",
@@ -82,7 +84,7 @@ const main = async () => {
           "Waiting for the next cycle to start in order to resume the operations."
         );
 
-        await sleep(60000);
+        await sleep(LOOP_SLEEP_TIME);
       }
     } catch (error) {
       console.error('Error:', error);

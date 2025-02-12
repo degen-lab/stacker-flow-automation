@@ -148,6 +148,7 @@ export const POOL_BTC_ADDRESS = currentConfig.POOL_BTC_ADDRESS;
 export const POOL_PRIVATE_KEY = currentConfig.POOL_PRIVATE_KEY;
 export const SIGNER_PRIVATE_KEY = currentConfig.SIGNER_PRIVATE_KEY;
 export const FIRST_POX_4_CYCLE = currentConfig.FIRST_POX_4_CYCLE;
+export const LOOP_SLEEP_TIME = process.env.LOOP_SLEEP_TIME || 60000;
 
 export const LIMIT = 100;
 export const SERVER_PORT = 8080;
