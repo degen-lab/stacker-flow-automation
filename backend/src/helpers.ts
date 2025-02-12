@@ -182,6 +182,10 @@ export const getEvents = async () => {
     }
   }
 
+  if (rawEvents.length === 0) {
+    shouldDeleteEvents = false;
+  }
+
   rawEvents.reverse();
   const parsedEvents =
     shouldDeleteEvents === true ? rawEvents : dbEvents.concat(rawEvents);
